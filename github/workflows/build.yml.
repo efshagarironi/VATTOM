@@ -1,0 +1,992 @@
+name: Build APK
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.7
+      - name: Create project files
+        run: |
+          mkdir -p app/src/main/java/com/mylauncher app/src/main/res/drawable app/src/main/res/mipmap-anydpi-v26
+
+          cat > settings.gradle <<'EOF'
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          dependencyResolutionManagement { repositories { google(); mavenCentral() } }
+          rootProject.name = "VadLan"
+          include ':app'
+          EOF
+
+          cat > build.gradle <<'EOF'
+          plugins { id 'com.android.application' version '8.5.2' apply false }
+          EOF
+
+          cat > app/build.gradle <<'EOF'
+          plugins { id 'com.android.application' }
+          android {
+              namespace 'com.mylauncher'
+              compileSdk 34
+              defaultConfig {
+                  applicationId "com.vadlan"
+                  minSdk 26
+                  targetSdk 34
+                  versionCode 2
+                  versionName "2.0"
+              }
+          }
+          tasks.withType(JavaCompile) { options.encoding = 'UTF-8' }
+          EOF
+
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              xmlns:tools="http://schemas.android.com/tools">
+              <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+              <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+              <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
+                  tools:ignore="ProtectedPermissions" />
+              <queries>
+                  <intent>
+                      <action android:name="android.intent.action.MAIN" />
+                      <category android:name="android.intent.category.LAUNCHER" />
+                  </intent>
+              </queries>
+              <application
+                  android:label="VadLan"
+                  android:icon="@mipmap/ic_launcher"
+                  android:supportsRtl="true"
+                  android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:windowSoftInputMode="adjustResize"
+                      android:launchMode="singleTask">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+                  <service
+                      android:name=".WatchService"
+                      android:exported="false"
+                      android:foregroundServiceType="specialUse">
+                      <property
+                          android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                          android:value="launcher_watch" />
+                  </service>
+                  <service
+                      android:name=".VadTile"
+                      android:exported="true"
+                      android:label="Vad"
+                      android:icon="@drawable/ic_tile"
+                      android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+                      <intent-filter>
+                          <action android:name="android.service.quicksettings.action.QS_TILE" />
+                      </intent-filter>
+                  </service>
+              </application>
+          </manifest>
+          EOF
+
+          cat > app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@drawable/ic_bg"/>
+              <foreground android:drawable="@drawable/ic_fg"/>
+          </adaptive-icon>
+          EOF
+
+          cat > app/src/main/res/drawable/ic_bg.xml <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              xmlns:aapt="http://schemas.android.com/aapt"
+              android:width="108dp" android:height="108dp"
+              android:viewportWidth="108" android:viewportHeight="108">
+              <path android:pathData="M0,0h108v108h-108z">
+                  <aapt:attr name="android:fillColor">
+                      <gradient android:startX="0" android:startY="0"
+                          android:endX="108" android:endY="108" android:type="linear">
+                          <item android:offset="0" android:color="#FF7B5CF0"/>
+                          <item android:offset="1" android:color="#FF22B8E8"/>
+                      </gradient>
+                  </aapt:attr>
+              </path>
+          </vector>
+          EOF
+
+          cat > app/src/main/res/drawable/ic_fg.xml <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp" android:height="108dp"
+              android:viewportWidth="108" android:viewportHeight="108">
+              <group android:scaleX="0.64" android:scaleY="0.64" android:pivotX="54" android:pivotY="54">
+                  <path android:fillColor="#FFFFFF" android:pathData="M30,32h48a2,2 0 0 1 2,2v28a2,2 0 0 1 -2,2h-48a2,2 0 0 1 -2,-2v-28a2,2 0 0 1 2,-2z"/>
+                  <path android:fillColor="#1F2A55" android:pathData="M31,35h46v26h-46z"/>
+                  <path android:fillColor="#FF9F43" android:pathData="M35,40h20v3h-20z"/>
+                  <path android:fillColor="#2ED573" android:pathData="M35,46h30v3h-30z"/>
+                  <path android:fillColor="#FF6B9D" android:pathData="M35,52h14v3h-14z"/>
+                  <path android:fillColor="#4FC3F7" android:pathData="M67,41a3,3 0 1 0 6,0a3,3 0 1 0 -6,0z"/>
+                  <path android:fillColor="#CFD8DC" android:pathData="M50,64h8v6h-8z"/>
+                  <path android:fillColor="#ECEFF1" android:pathData="M40,70h28v3h-28z"/>
+                  <path android:fillColor="#FFC93C" android:pathData="M88.1,81.9L76.1,69.9L71.9,74.1L83.9,86.1z"/>
+                  <path android:fillColor="#FF6B9D" android:pathData="M88.1,81.9L84.1,77.9L79.9,82.1L83.9,86.1z"/>
+                  <path android:fillColor="#F6D7B0" android:pathData="M76.1,69.9L71.9,74.1L66,64z"/>
+                  <path android:fillColor="#37474F" android:pathData="M66,64L68,65.2L67.2,66z"/>
+              </group>
+          </vector>
+          EOF
+
+          cat > app/src/main/res/drawable/ic_tile.xml <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp" android:height="24dp"
+              android:viewportWidth="24" android:viewportHeight="24">
+              <path android:fillColor="#FFFFFF" android:pathData="M20,18c1.1,0 1.99,-0.9 1.99,-2L22,6c0,-1.1 -0.9,-2 -2,-2H4c-1.1,0 -2,0.9 -2,2v10c0,1.1 0.9,2 2,2H0v2h24v-2h-4zM4,6h16v10H4V6z"/>
+          </vector>
+          EOF
+
+          cat > app/src/main/res/drawable/ic_gear.xml <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp" android:height="24dp"
+              android:viewportWidth="24" android:viewportHeight="24">
+              <path android:fillColor="#FFFFFF" android:pathData="M19.14,12.94c0.04,-0.3 0.06,-0.61 0.06,-0.94c0,-0.32 -0.02,-0.64 -0.07,-0.94l2.03,-1.58c0.18,-0.14 0.23,-0.41 0.12,-0.61l-1.92,-3.32c-0.12,-0.22 -0.37,-0.29 -0.59,-0.22l-2.39,0.96c-0.5,-0.38 -1.03,-0.7 -1.62,-0.94L14.4,2.81c-0.04,-0.24 -0.24,-0.41 -0.48,-0.41h-3.84c-0.24,0 -0.43,0.17 -0.47,0.41L9.25,5.35C8.66,5.59 8.12,5.92 7.63,6.29L5.24,5.33c-0.22,-0.08 -0.47,0 -0.59,0.22L2.74,8.87C2.62,9.08 2.66,9.34 2.86,9.48l2.03,1.58C4.84,11.36 4.8,11.69 4.8,12s0.02,0.64 0.07,0.94l-2.03,1.58c-0.18,0.14 -0.23,0.41 -0.12,0.61l1.92,3.32c0.12,0.22 0.37,0.29 0.59,0.22l2.39,-0.96c0.5,0.38 1.03,0.7 1.62,0.94l0.36,2.54c0.05,0.24 0.24,0.41 0.48,0.41h3.84c0.24,0 0.44,-0.17 0.47,-0.41l0.36,-2.54c0.59,-0.24 1.13,-0.56 1.62,-0.94l2.39,0.96c0.22,0.08 0.47,0 0.59,-0.22l1.92,-3.32c0.12,-0.22 0.07,-0.47 -0.12,-0.61L19.14,12.94zM12,15.6c-1.98,0 -3.6,-1.62 -3.6,-3.6s1.62,-3.6 3.6,-3.6s3.6,1.62 3.6,3.6S13.98,15.6 12,15.6z"/>
+          </vector>
+          EOF
+
+          cat > app/src/main/res/drawable/ic_plus.xml <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp" android:height="24dp"
+              android:viewportWidth="24" android:viewportHeight="24">
+              <path android:fillColor="#FFFFFF" android:pathData="M19,13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+          </vector>
+          EOF
+
+          cat > app/src/main/res/drawable/ic_back.xml <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp" android:height="24dp"
+              android:viewportWidth="24" android:viewportHeight="24">
+              <path android:fillColor="#FFFFFF" android:pathData="M20,11H7.83l5.59,-5.59L12,4l-8,8 8,8 1.41,-1.41L7.83,13H20v-2z"/>
+          </vector>
+          EOF
+
+          cat > app/src/main/java/com/mylauncher/VadTile.java <<'EOF'
+          package com.mylauncher;
+
+          import android.app.PendingIntent;
+          import android.content.Intent;
+          import android.os.Build;
+          import android.service.quicksettings.Tile;
+          import android.service.quicksettings.TileService;
+
+          public class VadTile extends TileService {
+              void upd() {
+                  Tile t = getQsTile();
+                  if (t == null) return;
+                  boolean open = getSharedPreferences("l", 0).getBoolean("open", false);
+                  t.setState(open ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE);
+                  t.setLabel("Vad");
+                  t.updateTile();
+              }
+
+              @Override
+              public void onStartListening() { upd(); }
+
+              @Override
+              public void onClick() {
+                  Tile t = getQsTile();
+                  if (t != null) { t.setState(Tile.STATE_ACTIVE); t.updateTile(); }
+                  Intent i = new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                  if (Build.VERSION.SDK_INT >= 34) {
+                      startActivityAndCollapse(PendingIntent.getActivity(this, 0, i, PendingIntent.FLAG_IMMUTABLE));
+                  } else {
+                      startActivityAndCollapse(i);
+                  }
+              }
+          }
+          EOF
+
+          cat > app/src/main/java/com/mylauncher/WatchService.java <<'EOF'
+          package com.mylauncher;
+
+          import android.app.Notification;
+          import android.app.NotificationChannel;
+          import android.app.NotificationManager;
+          import android.app.Service;
+          import android.app.usage.UsageEvents;
+          import android.app.usage.UsageStatsManager;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.content.pm.ServiceInfo;
+          import android.os.Build;
+          import android.os.Handler;
+          import android.os.IBinder;
+          import android.os.Looper;
+
+          public class WatchService extends Service {
+              Handler h = new Handler(Looper.getMainLooper());
+              String target, fg = null;
+              long start, last;
+              boolean seen = false;
+              int gone = 0;
+
+              Runnable r = new Runnable() {
+                  public void run() { check(); h.postDelayed(this, 1000); }
+              };
+
+              @Override
+              public IBinder onBind(Intent i) { return null; }
+
+              @Override
+              public int onStartCommand(Intent i, int f, int id) {
+                  target = i == null ? null : i.getStringExtra("pkg");
+                  NotificationManager nm = getSystemService(NotificationManager.class);
+                  nm.createNotificationChannel(new NotificationChannel("l", "VadLan", NotificationManager.IMPORTANCE_LOW));
+                  Notification n = new Notification.Builder(this, "l")
+                          .setSmallIcon(R.drawable.ic_tile)
+                          .setContentTitle("VadLan")
+                          .build();
+                  if (Build.VERSION.SDK_INT >= 34) {
+                      startForeground(2, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+                  } else {
+                      startForeground(2, n);
+                  }
+                  if (target == null) { stopSelf(); return START_NOT_STICKY; }
+                  start = System.currentTimeMillis();
+                  last = start - 3000;
+                  seen = false;
+                  gone = 0;
+                  fg = null;
+                  h.removeCallbacks(r);
+                  h.post(r);
+                  return START_NOT_STICKY;
+              }
+
+              void check() {
+                  long now = System.currentTimeMillis();
+                  try {
+                      UsageStatsManager um = (UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
+                      UsageEvents ev = um.queryEvents(last, now);
+                      UsageEvents.Event e = new UsageEvents.Event();
+                      while (ev.hasNextEvent()) {
+                          ev.getNextEvent(e);
+                          if (e.getEventType() == UsageEvents.Event.MOVE_TO_FOREGROUND) {
+                              fg = e.getPackageName();
+                          } else if (e.getEventType() == UsageEvents.Event.MOVE_TO_BACKGROUND
+                                  && e.getPackageName().equals(fg)) {
+                              fg = null;
+                          }
+                      }
+                  } catch (Exception ex) { stopSelf(); return; }
+                  last = now - 1000;
+                  if (target.equals(fg)) { seen = true; gone = 0; }
+                  else if (seen) { gone++; if (gone >= 2) { back(); } }
+                  else if (now - start > 12000) { stopSelf(); }
+              }
+
+              void back() {
+                  h.removeCallbacks(r);
+                  Intent i = new Intent(this, MainActivity.class)
+                          .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                  try { startActivity(i); } catch (Exception e) { }
+                  stopSelf();
+              }
+
+              @Override
+              public void onDestroy() { h.removeCallbacks(r); super.onDestroy(); }
+          }
+          EOF
+
+          cat > app/src/main/java/com/mylauncher/MainActivity.java <<'EOF'
+          package com.mylauncher;
+
+          import android.app.*;
+          import android.content.*;
+          import android.content.pm.*;
+          import android.graphics.*;
+          import android.graphics.drawable.*;
+          import android.net.Uri;
+          import android.os.*;
+          import android.provider.Settings;
+          import android.service.quicksettings.TileService;
+          import android.text.*;
+          import android.view.*;
+          import android.widget.*;
+          import java.util.*;
+
+          public class MainActivity extends Activity {
+              static final int HOME = 0, SETTINGS = 1, BG = 2, BEHAVIOR = 3, LANG = 4, PICKER = 5;
+
+              static class AppItem { String label, pkg; Drawable icon; }
+
+              SharedPreferences sp;
+              int bg, fgc, page = HOME;
+              boolean fa, waitingOverlay = false;
+              final int[] colors = {0xFF2B2B2B, 0xFF3C3C3C, 0xFFF2F2F2, 0xFF000000,
+                      0xFF1B2A3A, 0xFF1E3326, 0xFF3B1F24, 0xFF2E2140};
+              List<AppItem> allApps = new ArrayList<>();
+              List<String> added = new ArrayList<>();
+              Set<String> selected = new LinkedHashSet<>();
+              String query = "";
+              LinearLayout listBox;
+              TextView allText;
+              View allDot;
+              Button addBtn;
+
+              String t(String f, String e) { return fa ? f : e; }
+
+              @Override
+              protected void onCreate(Bundle b) {
+                  super.onCreate(b);
+                  sp = getSharedPreferences("l", 0);
+                  bg = sp.getInt("bg", colors[0]);
+                  fa = sp.getString("lang", "fa").equals("fa");
+                  if (Build.VERSION.SDK_INT >= 33 &&
+                          checkSelfPermission("android.permission.POST_NOTIFICATIONS")
+                                  != PackageManager.PERMISSION_GRANTED) {
+                      requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 1);
+                  }
+                  notifyBar();
+                  show();
+              }
+
+              @Override
+              public void onRequestPermissionsResult(int c, String[] p, int[] r) { notifyBar(); }
+
+              @Override
+              protected void onStart() {
+                  super.onStart();
+                  sp.edit().putBoolean("open", true).apply();
+                  requestTile();
+              }
+
+              @Override
+              protected void onStop() {
+                  super.onStop();
+                  sp.edit().putBoolean("open", false).apply();
+                  requestTile();
+              }
+
+              @Override
+              protected void onResume() {
+                  super.onResume();
+                  stopService(new Intent(this, WatchService.class));
+                  if (waitingOverlay) {
+                      waitingOverlay = false;
+                      if (hasUsage() && !Settings.canDrawOverlays(this)) {
+                          startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                  Uri.parse("package:" + getPackageName())));
+                      }
+                  }
+              }
+
+              @Override
+              public void onBackPressed() {
+                  if (page == HOME) super.onBackPressed();
+                  else if (page == BG || page == BEHAVIOR || page == LANG) { page = SETTINGS; show(); }
+                  else { page = HOME; show(); }
+              }
+
+              void requestTile() {
+                  try {
+                      TileService.requestListeningState(this, new ComponentName(this, VadTile.class));
+                  } catch (Exception e) { }
+              }
+
+              void notifyBar() {
+                  NotificationManager nm = getSystemService(NotificationManager.class);
+                  nm.createNotificationChannel(new NotificationChannel("l", "VadLan",
+                          NotificationManager.IMPORTANCE_LOW));
+                  Intent i = new Intent(this, MainActivity.class)
+                          .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                  PendingIntent pi = PendingIntent.getActivity(this, 0, i,
+                          PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+                  Notification n = new Notification.Builder(this, "l")
+                          .setSmallIcon(R.drawable.ic_tile)
+                          .setContentTitle("VadLan")
+                          .setContentText(t("برای باز کردن لمس کنید", "Tap to open"))
+                          .setContentIntent(pi)
+                          .setOngoing(true)
+                          .build();
+                  nm.notify(1, n);
+              }
+
+              // ---------- helpers ----------
+              int dp(int v) { return (int) (v * getResources().getDisplayMetrics().density); }
+
+              boolean isLight(int c) {
+                  return (0.299 * Color.red(c) + 0.587 * Color.green(c) + 0.114 * Color.blue(c)) > 150;
+              }
+
+              List<String> loadApps() {
+                  String s = sp.getString("apps", "");
+                  List<String> l = new ArrayList<>();
+                  for (String x : s.split(",")) if (!x.isEmpty()) l.add(x);
+                  return l;
+              }
+
+              void saveApps(List<String> l) {
+                  sp.edit().putString("apps", String.join(",", l)).apply();
+              }
+
+              GradientDrawable oval(int color) {
+                  GradientDrawable g = new GradientDrawable();
+                  g.setShape(GradientDrawable.OVAL);
+                  g.setColor(color);
+                  return g;
+              }
+
+              LinearLayout vbox() {
+                  LinearLayout l = new LinearLayout(this);
+                  l.setOrientation(LinearLayout.VERTICAL);
+                  l.setBackgroundColor(bg);
+                  l.setPadding(dp(16), dp(16), dp(16), dp(16));
+                  return l;
+              }
+
+              Button btn(String text, int fg, View.OnClickListener c) {
+                  Button x = new Button(this);
+                  x.setText(text);
+                  x.setTextColor(fg);
+                  x.setAllCaps(false);
+                  GradientDrawable g = new GradientDrawable();
+                  g.setCornerRadius(dp(12));
+                  g.setColor(isLight(bg) ? 0x22000000 : 0x33FFFFFF);
+                  x.setBackground(g);
+                  x.setOnClickListener(c);
+                  LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, dp(48), 1);
+                  p.setMargins(dp(4), dp(4), dp(4), dp(4));
+                  x.setLayoutParams(p);
+                  return x;
+              }
+
+              ImageView iconBtn(int res, int fg, View.OnClickListener c) {
+                  ImageView v = new ImageView(this);
+                  v.setImageResource(res);
+                  v.setColorFilter(fg);
+                  v.setPadding(dp(9), dp(9), dp(9), dp(9));
+                  v.setBackground(oval(isLight(bg) ? 0x22000000 : 0x33FFFFFF));
+                  v.setOnClickListener(c);
+                  return v;
+              }
+
+              FrameLayout.LayoutParams abs(int g) {
+                  return new FrameLayout.LayoutParams(dp(40), dp(40), g | Gravity.CENTER_VERTICAL);
+              }
+
+              FrameLayout topBar(String title, boolean home, int fg) {
+                  FrameLayout h = new FrameLayout(this);
+                  TextView tv = new TextView(this);
+                  tv.setText(title);
+                  tv.setTextSize(20);
+                  tv.setTextColor(fg);
+                  tv.setTypeface(null, Typeface.BOLD);
+                  h.addView(tv, new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
+                  if (home) {
+                      h.addView(iconBtn(R.drawable.ic_gear, fg, v -> { page = SETTINGS; show(); }), abs(Gravity.LEFT));
+                      h.addView(iconBtn(R.drawable.ic_plus, fg, v -> openPicker()), abs(Gravity.RIGHT));
+                  } else {
+                      h.addView(iconBtn(R.drawable.ic_back, fg, v -> onBackPressed()), abs(Gravity.LEFT));
+                  }
+                  return h;
+              }
+
+              View row(int dot, String title, String sub, boolean checked, int fg, View.OnClickListener c) {
+                  LinearLayout r = new LinearLayout(this);
+                  r.setGravity(Gravity.CENTER_VERTICAL);
+                  r.setPadding(dp(14), dp(14), dp(14), dp(14));
+                  GradientDrawable g = new GradientDrawable();
+                  g.setCornerRadius(dp(14));
+                  g.setColor(isLight(bg) ? 0x14000000 : 0x1AFFFFFF);
+                  r.setBackground(g);
+                  View d = new View(this);
+                  d.setBackground(oval(dot));
+                  LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(dp(28), dp(28));
+                  dl.setMarginEnd(dp(14));
+                  r.addView(d, dl);
+                  LinearLayout col = new LinearLayout(this);
+                  col.setOrientation(LinearLayout.VERTICAL);
+                  TextView a = new TextView(this);
+                  a.setText(title);
+                  a.setTextSize(16);
+                  a.setTextColor(fg);
+                  col.addView(a);
+                  if (sub != null) {
+                      TextView s = new TextView(this);
+                      s.setText(sub);
+                      s.setTextSize(12);
+                      s.setTextColor(fg);
+                      s.setAlpha(0.65f);
+                      col.addView(s);
+                  }
+                  r.addView(col, new LinearLayout.LayoutParams(0, -2, 1));
+                  if (checked) {
+                      TextView ck = new TextView(this);
+                      ck.setText("✓");
+                      ck.setTextSize(20);
+                      ck.setTextColor(0xFF34C759);
+                      r.addView(ck);
+                  }
+                  r.setOnClickListener(c);
+                  LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+                  lp.setMargins(0, dp(10), 0, 0);
+                  r.setLayoutParams(lp);
+                  return r;
+              }
+
+              // ---------- page switching ----------
+              void show() {
+                  int fg = isLight(bg) ? 0xFF202020 : 0xFFF2F2F2;
+                  fgc = fg;
+                  getWindow().setStatusBarColor(bg);
+                  getWindow().setNavigationBarColor(bg);
+                  int f = isLight(bg) ? (View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR) : 0;
+                  getWindow().getDecorView().setSystemUiVisibility(f);
+                  View v;
+                  if (page == SETTINGS) v = settingsPage(fg);
+                  else if (page == BG) v = bgPage(fg);
+                  else if (page == BEHAVIOR) v = behaviorPage(fg);
+                  else if (page == LANG) v = langPage(fg);
+                  else if (page == PICKER) v = pickerPage(fg);
+                  else v = homePage(fg);
+                  v.setLayoutDirection(fa ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR);
+                  setContentView(v);
+              }
+
+              // ---------- home ----------
+              View homePage(final int fg) {
+                  LinearLayout r = vbox();
+                  r.addView(topBar("VadLan", true, fg));
+                  ScrollView sv = new ScrollView(this);
+                  GridLayout grid = new GridLayout(this);
+                  grid.setColumnCount(4);
+                  grid.setPadding(0, dp(16), 0, 0);
+                  final PackageManager pm = getPackageManager();
+                  List<String> apps = loadApps();
+                  if (apps.isEmpty()) {
+                      TextView e = new TextView(this);
+                      e.setText(t("برای افزودن برنامه، دکمه + را بزنید", "Tap + to add apps"));
+                      e.setTextColor(fg);
+                      e.setAlpha(0.7f);
+                      e.setPadding(0, dp(24), 0, 0);
+                      r.addView(e);
+                  }
+                  for (final String pkg : apps) {
+                      try {
+                          LinearLayout it = new LinearLayout(this);
+                          it.setOrientation(LinearLayout.VERTICAL);
+                          it.setGravity(Gravity.CENTER_HORIZONTAL);
+                          it.setPadding(dp(4), dp(8), dp(4), dp(8));
+                          ImageView iv = new ImageView(this);
+                          iv.setImageDrawable(pm.getApplicationIcon(pkg));
+                          iv.setLayoutParams(new LinearLayout.LayoutParams(dp(56), dp(56)));
+                          TextView tv = new TextView(this);
+                          tv.setText(pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)));
+                          tv.setTextColor(fg);
+                          tv.setTextSize(12);
+                          tv.setMaxLines(1);
+                          tv.setEllipsize(TextUtils.TruncateAt.END);
+                          tv.setGravity(Gravity.CENTER);
+                          it.addView(iv);
+                          it.addView(tv);
+                          GridLayout.LayoutParams lp = new GridLayout.LayoutParams(
+                                  GridLayout.spec(GridLayout.UNDEFINED, 1f),
+                                  GridLayout.spec(GridLayout.UNDEFINED, 1f));
+                          lp.width = 0;
+                          it.setLayoutParams(lp);
+                          it.setOnClickListener(v -> launchApp(pkg));
+                          it.setOnLongClickListener(v -> {
+                              new AlertDialog.Builder(this).setTitle(t("حذف از لیست؟", "Remove from list?"))
+                                      .setPositiveButton(t("حذف", "Remove"), (d, w) -> {
+                                          List<String> l = loadApps();
+                                          l.remove(pkg);
+                                          saveApps(l);
+                                          show();
+                                      }).setNegativeButton(t("لغو", "Cancel"), null).show();
+                              return true;
+                          });
+                          grid.addView(it);
+                      } catch (Exception e) { }
+                  }
+                  sv.addView(grid);
+                  r.addView(sv, new LinearLayout.LayoutParams(-1, 0, 1));
+                  return r;
+              }
+
+              void launchApp(String pkg) {
+                  Intent li = getPackageManager().getLaunchIntentForPackage(pkg);
+                  if (li == null) return;
+                  int mode = sp.getInt("mode", 0);
+                  if (mode == 2) {
+                      if (!hasWatchPerms()) {
+                          mode = 0;
+                      } else {
+                          Intent s = new Intent(this, WatchService.class).putExtra("pkg", pkg);
+                          startForegroundService(s);
+                      }
+                  }
+                  startActivity(li);
+                  if (mode != 1) finish();
+              }
+
+              // ---------- permissions ----------
+              boolean hasUsage() {
+                  AppOpsManager ao = (AppOpsManager) getSystemService(Context.APP_OPS_SERVICE);
+                  return ao.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS,
+                          android.os.Process.myUid(), getPackageName()) == AppOpsManager.MODE_ALLOWED;
+              }
+
+              boolean hasWatchPerms() { return hasUsage() && Settings.canDrawOverlays(this); }
+
+              void askPerms() {
+                  if (!hasUsage()) {
+                      waitingOverlay = true;
+                      startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
+                  } else if (!Settings.canDrawOverlays(this)) {
+                      startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                              Uri.parse("package:" + getPackageName())));
+                  }
+              }
+
+              // ---------- settings ----------
+              View settingsPage(int fg) {
+                  LinearLayout r = vbox();
+                  r.addView(topBar(t("تنظیمات", "Settings"), false, fg));
+                  r.addView(row(0xFF5C6BC0, t("پس‌زمینه", "Background"), null, false, fg,
+                          v -> { page = BG; show(); }));
+                  r.addView(row(0xFFFF9800, t("تغییر بست لانچر", "Launcher Behavior"), null, false, fg,
+                          v -> { page = BEHAVIOR; show(); }));
+                  r.addView(row(0xFF26A69A, "Vad",
+                          t("افزودن کلید به پنل تنظیمات سریع", "Add button to Quick Settings"), false, fg,
+                          v -> addTile()));
+                  r.addView(row(0xFFEC407A, t("زبان", "Language"), fa ? "فارسی" : "English", false, fg,
+                          v -> { page = LANG; show(); }));
+                  return r;
+              }
+
+              void addTile() {
+                  String manual = t("پنل تنظیمات سریع را باز کنید، ویرایش را بزنید و Vad را اضافه کنید.",
+                          "Open Quick Settings, tap edit and add Vad.");
+                  if (Build.VERSION.SDK_INT >= 33) {
+                      try {
+                          StatusBarManager sbm = (StatusBarManager) getSystemService("statusbar");
+                          sbm.requestAddTileService(new ComponentName(this, VadTile.class), "Vad",
+                                  Icon.createWithResource(this, R.drawable.ic_tile),
+                                  getMainExecutor(), r -> { });
+                      } catch (Exception e) {
+                          Toast.makeText(this, manual, Toast.LENGTH_LONG).show();
+                      }
+                  } else {
+                      Toast.makeText(this, manual, Toast.LENGTH_LONG).show();
+                  }
+              }
+
+              View bgPage(final int fg) {
+                  LinearLayout p = vbox();
+                  p.addView(topBar(t("پس‌زمینه", "Background"), false, fg));
+                  TextView tt = new TextView(this);
+                  tt.setText(t("رنگ پس‌زمینه:", "Background color:"));
+                  tt.setTextColor(fg);
+                  tt.setPadding(0, dp(16), 0, 0);
+                  p.addView(tt);
+                  HorizontalScrollView hs = new HorizontalScrollView(this);
+                  LinearLayout r = new LinearLayout(this);
+                  for (final int c : colors) {
+                      View sw = new View(this);
+                      GradientDrawable g = oval(c);
+                      g.setStroke(dp(2), 0x88888888);
+                      sw.setBackground(g);
+                      LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(44), dp(44));
+                      lp.setMargins(dp(6), dp(8), dp(6), dp(8));
+                      sw.setLayoutParams(lp);
+                      sw.setOnClickListener(v -> setBg(c));
+                      r.addView(sw);
+                  }
+                  hs.addView(r);
+                  p.addView(hs);
+                  LinearLayout r2 = new LinearLayout(this);
+                  final EditText et = new EditText(this);
+                  et.setHint("#2B2B2B");
+                  et.setHintTextColor(0x88888888);
+                  et.setTextColor(fg);
+                  et.setSingleLine(true);
+                  et.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 2));
+                  r2.addView(et);
+                  r2.addView(btn(t("اعمال", "Apply"), fg, v -> {
+                      try { setBg(Color.parseColor(et.getText().toString().trim())); }
+                      catch (Exception e) {
+                          Toast.makeText(this, t("کد رنگ نامعتبر است", "Invalid color code"),
+                                  Toast.LENGTH_SHORT).show();
+                      }
+                  }));
+                  p.addView(r2);
+                  return p;
+              }
+
+              void setBg(int c) {
+                  bg = c | 0xFF000000;
+                  sp.edit().putInt("bg", bg).apply();
+                  show();
+              }
+
+              View behaviorPage(int fg) {
+                  LinearLayout r = vbox();
+                  r.addView(topBar(t("تغییر بست لانچر", "Launcher Behavior"), false, fg));
+                  int m = sp.getInt("mode", 0);
+                  r.addView(row(0xFF43A047, t("رفتن لانچر", "Launcher Goes"),
+                          t("با انتخاب برنامه، لانچر بسته می‌شود", "Launcher closes when you open an app"),
+                          m == 0, fg, v -> setMode(0)));
+                  r.addView(row(0xFF1E88E5, t("ماندن لانچر", "Launcher Stays"),
+                          t("لانچر بسته نمی‌شود و هنگام برگشت پشت برنامه باز می‌ماند",
+                                  "Launcher stays open behind the app"),
+                          m == 1, fg, v -> setMode(1)));
+                  r.addView(row(0xFFFB8C00, t("درخواست لانچر", "Launcher Request"),
+                          t("لانچر بسته می‌شود و با بسته شدن برنامه خودکار باز می‌شود",
+                                  "Launcher closes and reopens automatically when the app is closed"),
+                          m == 2, fg, v -> setMode(2)));
+                  return r;
+              }
+
+              void setMode(int i) {
+                  sp.edit().putInt("mode", i).apply();
+                  if (i == 2 && !hasWatchPerms()) {
+                      new AlertDialog.Builder(this)
+                              .setMessage(t("برای این حالت دو دسترسی لازم است: «دسترسی به اطلاعات استفاده» و «نمایش روی سایر برنامه‌ها». VadLan را در لیست پیدا کنید و روشن کنید.",
+                                      "This mode needs two permissions: Usage access and Display over other apps. Find VadLan in the list and turn it on."))
+                              .setPositiveButton(t("باز کردن تنظیمات", "Open settings"), (d, w) -> askPerms())
+                              .setNegativeButton(t("لغو", "Cancel"), null).show();
+                  }
+                  show();
+              }
+
+              View langPage(int fg) {
+                  LinearLayout r = vbox();
+                  r.addView(topBar(t("زبان", "Language"), false, fg));
+                  r.addView(row(0xFFEC407A, "فارسی", null, fa, fg, v -> setLang("fa")));
+                  r.addView(row(0xFF42A5F5, "English", null, !fa, fg, v -> setLang("en")));
+                  return r;
+              }
+
+              void setLang(String l) {
+                  sp.edit().putString("lang", l).apply();
+                  fa = l.equals("fa");
+                  notifyBar();
+                  show();
+              }
+
+              // ---------- picker ----------
+              void openPicker() {
+                  PackageManager pm = getPackageManager();
+                  Intent q = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
+                  Set<String> seen = new HashSet<>();
+                  allApps = new ArrayList<>();
+                  for (ResolveInfo ri : pm.queryIntentActivities(q, 0)) {
+                      String p = ri.activityInfo.packageName;
+                      if (p.equals(getPackageName()) || !seen.add(p)) continue;
+                      AppItem a = new AppItem();
+                      a.pkg = p;
+                      a.label = ri.loadLabel(pm).toString();
+                      a.icon = ri.loadIcon(pm);
+                      allApps.add(a);
+                  }
+                  Collections.sort(allApps, (x, y) -> x.label.compareToIgnoreCase(y.label));
+                  selected.clear();
+                  query = "";
+                  added = loadApps();
+                  page = PICKER;
+                  show();
+              }
+
+              List<AppItem> visible() {
+                  List<AppItem> l = new ArrayList<>();
+                  for (AppItem a : allApps)
+                      if (query.isEmpty() || a.label.toLowerCase().contains(query)) l.add(a);
+                  return l;
+              }
+
+              boolean allSel() {
+                  int n = 0;
+                  for (AppItem a : visible()) {
+                      if (added.contains(a.pkg)) continue;
+                      n++;
+                      if (!selected.contains(a.pkg)) return false;
+                  }
+                  return n > 0;
+              }
+
+              View pickerPage(final int fg) {
+                  LinearLayout r = vbox();
+                  r.addView(topBar(t("افزودن برنامه‌ها", "Add apps"), false, fg));
+
+                  final EditText et = new EditText(this);
+                  et.setHint(t("جستجو...", "Search..."));
+                  et.setHintTextColor(0x88888888);
+                  et.setTextColor(fg);
+                  et.setSingleLine(true);
+                  et.setPadding(dp(14), dp(10), dp(14), dp(10));
+                  GradientDrawable sg = new GradientDrawable();
+                  sg.setCornerRadius(dp(14));
+                  sg.setColor(isLight(bg) ? 0x14000000 : 0x1AFFFFFF);
+                  et.setBackground(sg);
+                  et.addTextChangedListener(new TextWatcher() {
+                      public void beforeTextChanged(CharSequence s, int a, int b, int c) { }
+                      public void onTextChanged(CharSequence s, int a, int b, int c) { }
+                      public void afterTextChanged(Editable s) {
+                          query = s.toString().trim().toLowerCase();
+                          fillList();
+                          updateTop();
+                      }
+                  });
+                  LinearLayout.LayoutParams el = new LinearLayout.LayoutParams(-1, -2);
+                  el.setMargins(0, dp(12), 0, 0);
+                  r.addView(et, el);
+
+                  LinearLayout all = new LinearLayout(this);
+                  all.setGravity(Gravity.CENTER_VERTICAL);
+                  all.setPadding(dp(4), dp(12), dp(12), dp(12));
+                  allDot = new View(this);
+                  LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(dp(22), dp(22));
+                  dl.setMarginEnd(dp(10));
+                  all.addView(allDot, dl);
+                  allText = new TextView(this);
+                  allText.setTextSize(16);
+                  allText.setTextColor(fg);
+                  all.addView(allText);
+                  all.setOnClickListener(v -> {
+                      if (allSel()) {
+                          selected.clear();
+                      } else {
+                          for (AppItem a : visible())
+                              if (!added.contains(a.pkg)) selected.add(a.pkg);
+                      }
+                      fillList();
+                      updateTop();
+                  });
+                  r.addView(all, new LinearLayout.LayoutParams(-2, -2));
+
+                  ScrollView sv = new ScrollView(this);
+                  listBox = new LinearLayout(this);
+                  listBox.setOrientation(LinearLayout.VERTICAL);
+                  sv.addView(listBox);
+                  r.addView(sv, new LinearLayout.LayoutParams(-1, 0, 1));
+
+                  addBtn = new Button(this);
+                  addBtn.setAllCaps(false);
+                  addBtn.setTextColor(0xFFFFFFFF);
+                  GradientDrawable ag = new GradientDrawable();
+                  ag.setCornerRadius(dp(14));
+                  ag.setColor(0xFF3D7BF7);
+                  addBtn.setBackground(ag);
+                  addBtn.setOnClickListener(v -> {
+                      if (selected.isEmpty()) {
+                          Toast.makeText(this, t("برنامه‌ای انتخاب نشده", "No app selected"),
+                                  Toast.LENGTH_SHORT).show();
+                          return;
+                      }
+                      List<String> l = loadApps();
+                      for (String p : selected) if (!l.contains(p)) l.add(p);
+                      saveApps(l);
+                      page = HOME;
+                      show();
+                  });
+                  LinearLayout.LayoutParams bl = new LinearLayout.LayoutParams(-1, dp(52));
+                  bl.setMargins(0, dp(10), 0, 0);
+                  r.addView(addBtn, bl);
+
+                  fillList();
+                  updateTop();
+                  return r;
+              }
+
+              void fillList() {
+                  listBox.removeAllViews();
+                  for (final AppItem a : visible()) {
+                      final boolean isAdded = added.contains(a.pkg);
+                      LinearLayout row = new LinearLayout(this);
+                      row.setGravity(Gravity.CENTER_VERTICAL);
+                      row.setPadding(dp(8), dp(8), dp(8), dp(8));
+                      row.addView(roundIcon(a.icon, 40));
+                      TextView tv = new TextView(this);
+                      tv.setText(a.label);
+                      tv.setTextSize(16);
+                      tv.setTextColor(fgc);
+                      tv.setMaxLines(1);
+                      tv.setEllipsize(TextUtils.TruncateAt.END);
+                      LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(0, -2, 1);
+                      tl.setMarginStart(dp(12));
+                      tl.setMarginEnd(dp(12));
+                      row.addView(tv, tl);
+                      final TextView tick = new TextView(this);
+                      tick.setText("✓");
+                      tick.setTextSize(14);
+                      tick.setGravity(Gravity.CENTER);
+                      tick.setLayoutParams(new LinearLayout.LayoutParams(dp(26), dp(26)));
+                      styleTick(tick, isAdded ? 2 : (selected.contains(a.pkg) ? 1 : 0));
+                      row.addView(tick);
+                      row.setOnClickListener(v -> {
+                          if (isAdded) return;
+                          if (selected.remove(a.pkg)) styleTick(tick, 0);
+                          else { selected.add(a.pkg); styleTick(tick, 1); }
+                          updateTop();
+                      });
+                      row.setOnLongClickListener(v -> {
+                          if (!isAdded && !selected.contains(a.pkg)) {
+                              selected.add(a.pkg);
+                              styleTick(tick, 1);
+                              updateTop();
+                          }
+                          return true;
+                      });
+                      listBox.addView(row);
+                  }
+              }
+
+              void styleTick(TextView tk, int s) {
+                  GradientDrawable g = new GradientDrawable();
+                  g.setShape(GradientDrawable.OVAL);
+                  if (s == 0) {
+                      g.setColor(0);
+                      g.setStroke(dp(2), 0xFF888888);
+                      tk.setTextColor(0);
+                  } else {
+                      g.setColor(s == 1 ? 0xFF34C759 : 0xFF8A8A8A);
+                      tk.setTextColor(0xFFFFFFFF);
+                  }
+                  tk.setBackground(g);
+              }
+
+              void updateTop() {
+                  boolean s = allSel();
+                  allText.setText(s ? t("لغو", "Cancel") : t("همه", "All"));
+                  GradientDrawable g = oval(s ? 0xFF34C759 : 0);
+                  if (!s) g.setStroke(dp(2), fgc);
+                  allDot.setBackground(g);
+                  addBtn.setText(t("افزودن", "Add") + " (" + selected.size() + ")");
+              }
+
+              ImageView roundIcon(Drawable d, int size) {
+                  ImageView iv = new ImageView(this);
+                  iv.setImageDrawable(d);
+                  iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                  iv.setOutlineProvider(new ViewOutlineProvider() {
+                      @Override
+                      public void getOutline(View v, Outline o) {
+                          o.setOval(0, 0, v.getWidth(), v.getHeight());
+                      }
+                  });
+                  iv.setClipToOutline(true);
+                  iv.setLayoutParams(new LinearLayout.LayoutParams(dp(size), dp(size)));
+                  return iv;
+              }
+          }
+          EOF
+      - name: Build
+        run: gradle assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
